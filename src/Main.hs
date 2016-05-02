@@ -49,7 +49,7 @@ identifyFormat fileData = getFirst . mconcat . map (\fmt -> First $ hasFormat fm
 
 hasCorrectExt :: FilePath -> FileFormat -> Bool
 hasCorrectExt fp fmt = any (== ext) (extensions fmt)
-  where ext = snd (fileNameAndExt fp)
+  where ext = map toLower . snd $ fileNameAndExt fp
 
 fileNameAndExt :: FilePath -> (String, String)
 fileNameAndExt fp = (\(n,e) -> (n, removeDot e)) (splitAt dotIdx fp)
