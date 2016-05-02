@@ -71,6 +71,7 @@ fixExtension ext fp = do
 prompt :: String -> [String] -> IO String
 prompt title opts = do
   putStr $ title ++ " (" ++ intercalate "/" opts ++ ") "
+  IO.hFlush IO.stdout
   input <- getLine
   if input `elem` opts then return input
                        else prompt title opts
