@@ -19,4 +19,8 @@ Synopsis:
 ## Supported file formats
 
 File format is identified based on well-known magic bytes. Currently only a limited set of file formats is supported:
-* images: jpg, png, gif
+
+* images: jpg/jpeg, png, gif, bmp, ico, tiff
+* audio: mp3, ogg/oga, wma/asf, mka, midi, flac
+* video: avi, mkv/mk3d/webm, 3gp/3g2
+* archives: zip/jar/docx/xlsx/pptx/odt/ods/odp/..., rar, gz/tar.gz, tar, 7z, bz2, z/tar.z
