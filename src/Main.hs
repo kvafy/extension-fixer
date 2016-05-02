@@ -1,4 +1,5 @@
 module Main where
+import Control.Exception (evaluate)
 import Control.Monad(filterM)
 import Data.Char(toLower)
 import Data.List(isPrefixOf, findIndices, intercalate)
@@ -7,6 +8,7 @@ import Data.Monoid(mconcat, First(..), getFirst)
 import Data.Word(Word8)
 import System.Directory(listDirectory, doesFileExist, renameFile)
 import System.Environment(getArgs)
+import qualified System.IO as IO
 -- Using lazy to have nice and simple file format detection
 -- for magic sequences of arbitrary length.
 import qualified Data.ByteString.Lazy as B
@@ -33,8 +35,11 @@ identifyFormats files = mapM (\fp -> do {ff <- identifyFormatIO fp; return (fp, 
 
 identifyFormatIO :: FilePath -> IO (Maybe FileFormat)
 identifyFormatIO file = do
-  bytes <- B.readFile file
-  return $ identifyFormat (B.unpack bytes)
+  h <- IO.openFile file IO.ReadMode
+  bytes <- B.hGetContents h
+  fmt <- evaluate $ identifyFormat (B.unpack bytes)
+  IO.hClose h
+  return fmt
 
 identifyFormat :: [Word8] -> Maybe FileFormat
 identifyFormat fileData = getFirst . mconcat . map (\fmt -> First $ hasFormat fmt) $ knownFormats
