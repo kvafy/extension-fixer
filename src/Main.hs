@@ -2,7 +2,7 @@ module Main where
 import Control.Exception (evaluate)
 import Control.Monad(filterM)
 import Data.Char(toLower)
-import Data.List(isPrefixOf, findIndices, intercalate)
+import Data.List(elemIndices, isPrefixOf, intercalate)
 import Data.Maybe(isJust, fromJust)
 import Data.Monoid(mconcat, First(..), getFirst)
 import Data.Word(Word8)
@@ -53,7 +53,7 @@ mainExtension fmt = head . extensions $ fmt
 
 
 identifyFormats :: [FilePath] -> IO [(FilePath, Maybe FileFormat)]
-identifyFormats files = mapM (\fp -> do {ff <- identifyFormatIO fp; return (fp, ff)}) files
+identifyFormats = mapM (\fp -> do {ff <- identifyFormatIO fp; return (fp, ff)})
 
 identifyFormatIO :: FilePath -> IO (Maybe FileFormat)
 identifyFormatIO file = do
@@ -64,18 +64,18 @@ identifyFormatIO file = do
   return fmt
 
 identifyFormat :: [Word8] -> Maybe FileFormat
-identifyFormat fileData = getFirst . mconcat . map (\fmt -> First $ hasFormat fmt) $ knownFormats
-  where hasFormat fmt = if any (`isPrefixOf` fileData) (magicNumbers fmt)
-                          then Just fmt
-                          else Nothing
+identifyFormat fileData = getFirst . mconcat . map (First . maybeFormat) $ knownFormats
+  where maybeFormat fmt = if any (`isPrefixOf` fileData) (magicNumbers fmt)
+                            then Just fmt
+                            else Nothing
 
 hasCorrectExt :: FilePath -> FileFormat -> Bool
-hasCorrectExt fp fmt = any (== ext) (extensions fmt)
-  where ext = map toLower . snd $ fileNameAndExt fp
+hasCorrectExt fp fmt = curExt `elem` extensions fmt
+  where curExt = map toLower . snd $ fileNameAndExt fp
 
 fileNameAndExt :: FilePath -> (String, String)
 fileNameAndExt fp = (\(n,e) -> (n, removeDot e)) (splitAt dotIdx fp)
-  where dotIdxs = findIndices (== '.') fp
+  where dotIdxs = elemIndices '.' fp
         dotIdx = if not (null dotIdxs) then last dotIdxs else length fp
         removeDot = drop 1
 
@@ -133,7 +133,7 @@ main = do
                                misNamedFiles
           proceed <- prompt "Do you want to rename the files?" ["y","n"]
           if proceed == "y"
-            then do
+            then
               mapM_ (\(fp,fmt) -> fixExtension (mainExtension fmt) fp) misNamedFiles
             else
               return ()
