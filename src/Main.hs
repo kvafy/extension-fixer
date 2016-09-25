@@ -47,10 +47,10 @@ knownFormats = [ -- images
                ]
 
 instance Show FileFormat where
-  show fmt = head . extensions $ fmt
+  show = head . extensions
 
 mainExtension :: FileFormat -> String
-mainExtension fmt = head . extensions $ fmt
+mainExtension = head . extensions
 
 
 identifyFormats :: [FilePath] -> IO [(FilePath, Maybe FileFormat)]
