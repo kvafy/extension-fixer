@@ -6,8 +6,9 @@ import Data.List(elemIndices, isPrefixOf, intercalate)
 import Data.Maybe(isJust, fromJust)
 import Data.Monoid(mconcat, First(..), getFirst)
 import Data.Word(Word8)
-import System.Directory(listDirectory, doesFileExist, renameFile)
+import System.Directory(listDirectory, doesFileExist, doesDirectoryExist, renameFile)
 import System.Environment(getArgs)
+import System.FilePath (combine)
 import qualified System.IO as IO
 -- Using lazy to have nice and simple file format detection
 -- for magic sequences of arbitrary length.
@@ -90,6 +91,21 @@ fixExtension ext fp = do
         renameFile fp fp'
       else error $ "Cannot rename " ++ fp ++ ". Target file " ++ fp' ++ " already exists."
 
+filesInDirectory :: FilePath -> Bool -> IO [FilePath]
+filesInDirectory dir recursive = do
+  ls <- listDirectory dir
+  let entries = map (dir `combine`) ls
+  files <- filterM doesFileExist entries
+  --putStrLn $ "Found following entries in " ++ dir
+  --mapM_ (\fp -> putStrLn $ " * " ++ show fp) entries
+  if not recursive
+    then
+      return files
+    else do
+      dirs  <- filterM doesDirectoryExist entries
+      subfiles <- mapM (\d -> filesInDirectory d True) dirs
+      return (files ++ concat subfiles)
+
 prompt :: String -> [String] -> IO String
 prompt title opts = do
   putStr $ title ++ " (" ++ intercalate "/" opts ++ ") "
@@ -105,7 +121,7 @@ printUsage = do
   putStrLn "Scans all files in given directory (non-recursively) and fixes extensions"
   putStrLn "of files that are named incorrectly."
   putStrLn ""
-  putStrLn "  Usage: executable <directory>"
+  putStrLn "  Usage: ./extension-fixer [-r|--recurse] <directory>"
   putStrLn ""
 
 main :: IO ()
@@ -116,9 +132,11 @@ main = do
       putStrLn "Error: Incorrect parameters"
       printUsage
     else do
-      let dir = last args
+      let optDir = last args
+          opts = init args
+          optRecurse = any (`elem` opts) ["-r", "--recurse"]
 
-      files <- listDirectory dir >>= filterM doesFileExist
+      files <- filesInDirectory optDir optRecurse
       filesWithMaybeFormats <- identifyFormats files
       let filesWithFormats = map (\(f,fmt) -> (f, fromJust fmt)) . filter (isJust . snd) $ filesWithMaybeFormats
 
