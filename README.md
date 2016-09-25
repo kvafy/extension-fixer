@@ -14,7 +14,7 @@ The extension-fixer is built as a single executable file using _cabal_ as follow
 
 Synopsis:
 
-    $ ./extension-fixer <some-directory>
+    $ ./extension-fixer [-r|--recurse] <some-directory>
 
 ## Supported file formats
 
