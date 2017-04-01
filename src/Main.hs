@@ -14,7 +14,12 @@ import qualified System.IO as IO
 -- for magic sequences of arbitrary length.
 import qualified Data.ByteString.Lazy as B
 
-data FileFormat = FileFormat { extensions :: [String]
+data CmdlineArgs = CmdlineArgs { getHelp       :: Bool
+                               , getRecurse    :: Bool
+                               , getDirEntries :: [FilePath]
+                               }
+
+data FileFormat = FileFormat { extensions   :: [String]
                              , magicNumbers :: [[Word8]]
                              }
 
@@ -91,20 +96,22 @@ fixExtension ext fp = do
         renameFile fp fp'
       else error $ "Cannot rename " ++ fp ++ ". Target file " ++ fp' ++ " already exists."
 
-filesInDirectory :: FilePath -> Bool -> IO [FilePath]
-filesInDirectory dir recursive = do
-  ls <- listDirectory dir
-  let entries = map (dir `combine`) ls
-  files <- filterM doesFileExist entries
-  --putStrLn $ "Found following entries in " ++ dir
-  --mapM_ (\fp -> putStrLn $ " * " ++ show fp) entries
-  if not recursive
-    then
-      return files
-    else do
-      dirs  <- filterM doesDirectoryExist entries
-      subfiles <- mapM (\d -> filesInDirectory d True) dirs
-      return (files ++ concat subfiles)
+listFiles :: FilePath -> Bool -> IO [FilePath]
+listFiles path recursive = do
+  isFile <- doesFileExist path
+  if isFile then
+    return [path]
+  else do
+    ls <- listDirectory path
+    let entries = map (path `combine`) ls
+    files <- filterM doesFileExist entries
+    if not recursive
+      then
+        return files
+      else do
+        dirs  <- filterM doesDirectoryExist entries
+        subfiles <- mapM (\d -> listFiles d True) dirs
+        return (files ++ concat subfiles)
 
 prompt :: String -> [String] -> IO String
 prompt title opts = do
@@ -118,25 +125,30 @@ printUsage :: IO ()
 printUsage = do
   putStrLn ""
   putStrLn "File extension fixer."
-  putStrLn "Scans all files in given directory (non-recursively) and fixes extensions"
-  putStrLn "of files that are named incorrectly."
+  putStrLn "Scans given files/directories and fixes extensions of files that"
+  putStrLn "are named incorrectly."
+  putStrLn "If no file/directory is specified, scans the current directory."
   putStrLn ""
-  putStrLn "  Usage: ./extension-fixer [-r|--recurse] <directory>"
+  putStrLn "  Usage: ./extension-fixer [-r|--recurse] ..."
   putStrLn ""
+
+parseCmdLine :: [String] -> CmdlineArgs
+parseCmdLine args = CmdlineArgs optHelp optRecurse dirEntries
+  where optRecurse = any (`elem` args) ["-r", "--recurse"]
+        optHelp = any (`elem` args) ["-h", "--help"]
+        other = filter (not . ("-" `isPrefixOf`)) args
+        dirEntries = if null other then ["."] else other
 
 main :: IO ()
 main = do
-  args <- getArgs
-  if length args < 1
+  rawArgs <- getArgs
+  let args = parseCmdLine rawArgs
+
+  if getHelp args
     then do
-      putStrLn "Error: Incorrect parameters"
       printUsage
     else do
-      let optDir = last args
-          opts = init args
-          optRecurse = any (`elem` opts) ["-r", "--recurse"]
-
-      files <- filesInDirectory optDir optRecurse
+      files <- concatMapM (\d -> listFiles d (getRecurse args)) (getDirEntries args)
       filesWithMaybeFormats <- identifyFormats files
       let filesWithFormats = map (\(f,fmt) -> (f, fromJust fmt)) . filter (isJust . snd) $ filesWithMaybeFormats
 
@@ -155,3 +167,7 @@ main = do
               mapM_ (\(fp,fmt) -> fixExtension (mainExtension fmt) fp) misNamedFiles
             else
               return ()
+  where concatMapM :: (Monad m) => (a -> m [b]) -> [a] -> m [b]
+        concatMapM f xs = do
+          ys <- mapM f xs
+          return (concat ys)
